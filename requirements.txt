@@ -1,0 +1,10 @@
+--upgrade pip
+
+flake8
+black
+numpy
+pandas
+scikit-learn
+tensorflow
+Pillow
+seaborn
