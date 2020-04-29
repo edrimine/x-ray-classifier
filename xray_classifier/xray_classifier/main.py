@@ -1,19 +1,16 @@
 import os
 import pprint
+from pathlib import Path
 
 import click
 import numpy as np
 import pkg_resources
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-from tensorflow.keras.models import load_model  # noqa: E402
-from tensorflow.keras.preprocessing import image  # noqa: E402
-
 
 model_file = pkg_resources.resource_filename(
     "xray_classifier", "models/x_ray_vgg19_clf_v1.h5"
 )
-clf = load_model(model_file)
 
 CLASS_NAMES = np.array(
     [
@@ -34,34 +31,43 @@ CLASS_NAMES = np.array(
 
 @click.command()
 @click.option(
-    "-f", "--file", prompt="File path", help="Full or relative filepath to the image"
-)
-@click.option(
     "-t",
-    "--threshhold",
-    prompt="Threshhold",
+    "--threshold",
     default=0.5,
     type=float,
-    help="Probability threshhold for classification",
+    help="Probability threshold for classification",
 )
 @click.option(
-    "--probs/--no-probs",
-    default=False,
-    help="Print probabilities for each class"
+    "--probs/--no-probs", default=False, help="Print probabilities for each class"
 )
-def classify(file, threshhold, probs):
-    img = image.load_img(file, target_size=(244, 244))
-    img_array = (np.array(img) * (1.0 / 255)).reshape((1, 244, 244, 3))
-    pred = clf.predict(img_array)
+@click.argument("filepath", type=click.Path(exists=True))
+def classify(threshold, probs, filepath):
+    """Predict FILEPATH classification."""
 
-    classes = pred[0] > threshhold
-    print(
-        f"Predicted classes with probability threshhold "
-        f"of {threshhold}: {CLASS_NAMES[classes]}"
-    )
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.preprocessing import image
 
-    if probs:
-        pprint.pprint(list(zip(CLASS_NAMES, pred[0])))
+    clf = load_model(model_file)
+
+    if os.path.isdir(filepath):
+        files = list(Path(filepath).glob("*.png"))
+    else:
+        files = [Path(filepath)]
+
+    for file in files:
+        img = image.load_img(file, target_size=(244, 244))
+        img_array = (np.array(img) * (1.0 / 255)).reshape((1, 244, 244, 3))
+        pred = clf.predict(img_array)
+
+        classes = pred[0] > threshold
+        print(file)
+        print(
+            f"Predicted classes with probability threshold "
+            f"of {threshold}: {CLASS_NAMES[classes]}"
+        )
+
+        if probs:
+            pprint.pprint(list(zip(CLASS_NAMES, pred[0])))
 
 
 def main():
